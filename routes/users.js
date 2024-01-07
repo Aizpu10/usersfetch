@@ -2,7 +2,30 @@ var express = require('express');
 var router = express.Router();
 
 const mongojs = require('mongojs');
-const db = mongojs('mongodb://127.0.0.1:27017/bezeroakdb', ['bezeroak']);
+const db = mongojs('mongodb://127.0.0.1:27017/bezeroakimage', ['bezeroak']);
+const multer = require('multer')
+const storage = multer.diskStorage(
+    {
+        destination: 'uploads/',
+        filename: function (req, file, cb) {
+            const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+            cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+        }
+    }
+);
+const upload = multer({
+    storage: storage,
+    limits: { fileSize: 2000000 },
+    fileFilter: (req, file, cb) => {
+        // Verifica el formato del archivo
+        if (file.mimetype === 'image/png' || file.mimetype === 'image/jpg') {
+            cb(null, true);
+        } else {
+            cb(null, false);
+            return cb(new Error('Solo se permiten archivos .png o .jpg'));
+        }
+    }
+});
 
 let users = [];
 
@@ -38,7 +61,10 @@ router.get('/list', function(req, res, next) {
 });
 
 
-router.post("/new", (req, res) => {
+router.post("/new", upload.single('avatar'), function (req, res) {
+  if (req.body.avatar == "") {
+    req.body.avatar = "descarga.jpg";
+  }
   users.push(req.body);
   console.log(req.body);
 
@@ -72,9 +98,10 @@ router.put("/update/:id", (req, res) => {
   user.izena = req.body.izena;
   user.abizena = req.body.abizena;
   user.email = req.body.email;
+  user.avatar = req.body.avatar.filename;
   
   db.bezeroak.update({"_id":  mongojs.ObjectID(req.params.id)},
-    { $set: {"izena":  req.body.izena, "abizena":  req.body.abizena, "email":  req.body.email} },
+    { $set: {"izena":  req.body.izena, "abizena":  req.body.abizena, "email":  req.body.email, "avatar": req.body.avatar.filename} },
     function (err, user) {
         if (err) {
             console.log(err)
